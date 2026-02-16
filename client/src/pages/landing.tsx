@@ -122,7 +122,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center space-y-4 mb-16">
             <h2 className="text-3xl font-bold tracking-tight">
-              How BioSync Works
+              How It Works
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               From raw lab data to actionable protocols in minutes, powered by
@@ -167,14 +167,14 @@ export default function Landing() {
       <section className="py-16 border-t">
         <div className="max-w-7xl mx-auto px-4 text-center space-y-4">
           <p className="text-xs text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            BioSync Labs is for informational purposes only. All peptide,
+            Klein & Stone Bio Labs is for informational purposes only. All peptide,
             hormone, and supplement recommendations require review and
             prescription by a licensed physician. Peptides referenced are often
             classified as research-use only. This platform does not provide
             medical advice, diagnosis, or treatment.
           </p>
           <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} BioSync Labs. All rights reserved.
+            &copy; {new Date().getFullYear()} Klein & Stone Bio Labs. All rights reserved.
           </p>
         </div>
       </section>

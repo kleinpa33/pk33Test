@@ -8,7 +8,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Moon, Sun, LogOut, User, Beaker } from "lucide-react";
+import { Moon, Sun, LogOut, User } from "lucide-react";
+import logoImg from "@assets/image_1771281156793.jpg";
 
 export function Header() {
   const { user, isAuthenticated } = useAuth();
@@ -18,11 +19,9 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 px-4 py-3">
         <a href="/" className="flex items-center gap-2" data-testid="link-home">
-          <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
-            <Beaker className="h-5 w-5 text-primary-foreground" />
-          </div>
+          <img src={logoImg} alt="Klein & Stone Bio Labs" className="h-8 w-8 rounded-md object-cover" />
           <span className="text-lg font-bold tracking-tight">
-            BioSync Labs
+            Klein & Stone Bio Labs
           </span>
         </a>
 

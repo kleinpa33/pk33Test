@@ -1,7 +1,7 @@
-# BioSync Labs
+# Klein & Stone Bio Labs
 
 ## Overview
-BioSync Labs is a health optimization platform that analyzes blood test results and generates personalized 90-day optimization protocols including peptides, hormones, nutrition, and exercise recommendations based on evidence-based functional medicine logic.
+Klein & Stone Bio Labs is a health optimization platform that analyzes blood test results and generates personalized 90-day optimization protocols including peptides, hormones, nutrition, and exercise recommendations based on evidence-based functional medicine logic.
 
 ## Architecture
 - **Frontend**: React + Vite + TailwindCSS + shadcn/ui components
@@ -27,7 +27,7 @@ BioSync Labs is a health optimization platform that analyzes blood test results 
 - `server/routes.ts` - API endpoints
 - `server/storage.ts` - Database operations
 - `server/recommender.ts` - Recommendation engine with hardcoded rules
-- `server/lab-parser.ts` - OpenAI vision-based lab file parsing
+- `server/lab-parser.ts` - OpenAI vision-based lab file parsing (converts PDFs to images via pdf-to-img)
 - `server/seed.ts` - Sample data seeding (3 blood test profiles)
 - `server/db.ts` - Database connection
 - `shared/schema.ts` - Drizzle schema + TypeScript types
@@ -55,6 +55,9 @@ BioSync Labs is a health optimization platform that analyzes blood test results 
 - Bio-tech aesthetic with gradient accents
 
 ## Recent Changes
+- Rebranded from "BioSync Labs" to "Klein & Stone Bio Labs" with custom logo
+- Fixed PDF upload: converts PDFs to PNG via pdf-to-img before sending to OpenAI vision
+- Fixed OpenAI parameter: max_tokens → max_completion_tokens for GPT-5.2
 - Added OpenAI integration for lab file parsing (GPT-5.2 vision model)
 - Added drag-and-drop file upload on lab entry page
 - Added 3 sample blood test profiles seeded on startup
