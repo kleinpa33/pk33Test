@@ -1,3 +1,4 @@
+import { useState, useCallback, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -14,12 +15,19 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  FormDescription,
 } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SafetyBanner } from "@/components/safety-banner";
 import { Header } from "@/components/header";
-import { Loader2, Beaker, AlertTriangle } from "lucide-react";
+import {
+  Loader2,
+  Beaker,
+  AlertTriangle,
+  Upload,
+  FileText,
+  CheckCircle2,
+  X,
+} from "lucide-react";
 
 interface MarkerDef {
   key: keyof LabMarkers;
@@ -99,17 +107,61 @@ const tabCategories = [
   { id: "organ", label: "Organ Function", markers: organMarkers },
 ];
 
+const allMarkerKeys = tabCategories.flatMap((c) => c.markers.map((m) => m.key));
+
 export default function LabEntry() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [extractedCount, setExtractedCount] = useState<number | null>(null);
 
   const form = useForm<LabMarkers>({
     resolver: zodResolver(labMarkerSchema),
     defaultValues: {},
   });
 
-  const mutation = useMutation({
+  const fileMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("labFile", file);
+      const res = await fetch("/api/labs/parse-file", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to parse file");
+      }
+      return res.json();
+    },
+    onSuccess: (data: { markers: Partial<LabMarkers>; extractedCount: number }) => {
+      for (const key of allMarkerKeys) {
+        const val = data.markers[key];
+        if (val !== undefined && val !== null) {
+          form.setValue(key, val);
+        }
+      }
+      setExtractedCount(data.extractedCount);
+      toast({
+        title: "Biomarkers extracted",
+        description: `Successfully extracted ${data.extractedCount} biomarkers from your file. Review the values below and submit when ready.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Extraction failed",
+        description: error.message,
+        variant: "destructive",
+      });
+      setUploadedFile(null);
+    },
+  });
+
+  const submitMutation = useMutation({
     mutationFn: async (data: LabMarkers) => {
       const cleaned = Object.fromEntries(
         Object.entries(data).filter(([, v]) => v !== undefined && v !== null && v !== 0 && !isNaN(v as number)),
@@ -134,7 +186,58 @@ export default function LabEntry() {
     },
   });
 
+  const handleFile = useCallback(
+    (file: File) => {
+      const validTypes = ["image/png", "image/jpeg", "image/webp", "image/gif", "application/pdf"];
+      if (!validTypes.includes(file.type)) {
+        toast({
+          title: "Invalid file type",
+          description: "Please upload a PNG, JPEG, WebP, GIF image or a PDF file.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Maximum file size is 10MB.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setUploadedFile(file);
+      setExtractedCount(null);
+      fileMutation.mutate(file);
+    },
+    [fileMutation, toast],
+  );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragOver(false);
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    },
+    [handleFile],
+  );
+
+  const handleFileInput = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) handleFile(file);
+    },
+    [handleFile],
+  );
+
+  const clearFile = useCallback(() => {
+    setUploadedFile(null);
+    setExtractedCount(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, []);
+
   function renderMarkerField(marker: MarkerDef) {
+    const isExtracted = extractedCount !== null && form.getValues(marker.key) !== undefined;
     return (
       <FormField
         key={marker.key}
@@ -142,7 +245,14 @@ export default function LabEntry() {
         name={marker.key}
         render={({ field }) => (
           <FormItem>
-            <FormLabel className="text-sm">{marker.label}</FormLabel>
+            <FormLabel className="text-sm flex items-center gap-1.5 flex-wrap">
+              {marker.label}
+              {isExtracted && (
+                <span className="text-[10px] font-normal text-primary bg-primary/10 px-1.5 py-0.5 rounded-md">
+                  AI extracted
+                </span>
+              )}
+            </FormLabel>
             <FormControl>
               <div className="relative">
                 <Input
@@ -180,10 +290,96 @@ export default function LabEntry() {
             Enter Lab Results
           </h1>
           <p className="text-muted-foreground">
-            Enter your blood test values below. Fill in as many markers as
-            available — the more data, the better your protocol.
+            Upload a lab report file or enter values manually below. The more
+            data, the better your protocol.
           </p>
         </div>
+
+        <Card className="mb-6" data-testid="upload-card">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Upload className="h-4 w-4 text-primary" />
+              Upload Lab Report
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {!uploadedFile ? (
+              <div
+                data-testid="dropzone"
+                className={`border-2 border-dashed rounded-md p-8 text-center cursor-pointer transition-colors ${
+                  dragOver
+                    ? "border-primary bg-primary/5"
+                    : "border-muted-foreground/25 hover:border-primary/50"
+                }`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif,application/pdf"
+                  className="hidden"
+                  onChange={handleFileInput}
+                  data-testid="input-file-upload"
+                />
+                <Upload className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
+                <p className="text-sm font-medium mb-1">
+                  Drag & drop your lab report here
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  or click to browse. Supports PNG, JPEG, WebP, GIF, PDF (max
+                  10MB)
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-3 rounded-md bg-muted/50">
+                  <FileText className="h-5 w-5 text-primary shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" data-testid="text-uploaded-filename">
+                      {uploadedFile.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {(uploadedFile.size / 1024).toFixed(1)} KB
+                    </p>
+                  </div>
+                  {fileMutation.isPending ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      <span>Analyzing...</span>
+                    </div>
+                  ) : extractedCount !== null ? (
+                    <div className="flex items-center gap-2 text-sm text-primary">
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span data-testid="text-extracted-count">
+                        {extractedCount} markers found
+                      </span>
+                    </div>
+                  ) : null}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={clearFile}
+                    data-testid="button-clear-file"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                {extractedCount !== null && (
+                  <p className="text-xs text-muted-foreground">
+                    Values have been auto-filled below. Review them for accuracy
+                    before submitting — you can edit any field.
+                  </p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Card className="mb-4">
           <CardContent className="p-4">
@@ -208,7 +404,7 @@ export default function LabEntry() {
 
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit((data) => mutation.mutate(data))}
+            onSubmit={form.handleSubmit((data) => submitMutation.mutate(data))}
             className="space-y-6"
           >
             <Tabs defaultValue="hormones">
@@ -245,10 +441,10 @@ export default function LabEntry() {
               type="submit"
               size="lg"
               className="w-full"
-              disabled={mutation.isPending}
+              disabled={submitMutation.isPending || fileMutation.isPending}
               data-testid="button-submit-labs"
             >
-              {mutation.isPending ? (
+              {submitMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Submitting & Analyzing...

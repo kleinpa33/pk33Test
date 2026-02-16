@@ -1,9 +1,24 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import multer from "multer";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { labMarkerSchema, type LabMarkers } from "@shared/schema";
 import { generateProgram, analyzeMarkers } from "./recommender";
+import { parseLabFile } from "./lab-parser";
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ["image/png", "image/jpeg", "image/webp", "image/gif", "application/pdf"];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only PNG, JPEG, WebP, GIF images and PDF files are supported"));
+    }
+  },
+});
 
 export async function registerRoutes(
   httpServer: Server,
@@ -126,6 +141,114 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching programs:", error);
       res.status(500).json({ message: "Failed to fetch programs" });
+    }
+  });
+
+  app.get("/api/samples", isAuthenticated, async (_req: any, res) => {
+    try {
+      const sampleUserIds = ["sample-low-t-male", "sample-stress-female", "sample-metabolic-male"];
+      const samples = [];
+      for (const uid of sampleUserIds) {
+        const profile = await storage.getProfile(uid);
+        if (!profile) continue;
+        const labs = await storage.getLabResults(uid);
+        const progs = await storage.getPrograms(uid);
+        if (labs.length > 0 && progs.length > 0) {
+          samples.push({
+            id: uid,
+            name: uid === "sample-low-t-male"
+              ? "Low Testosterone Male (Age 38)"
+              : uid === "sample-stress-female"
+                ? "High Stress Female (Age 45)"
+                : "Metabolic Issues Male (Age 32)",
+            profile,
+            labId: labs[0].id,
+            markers: labs[0].markers,
+            programId: progs[0].id,
+          });
+        }
+      }
+      res.json(samples);
+    } catch (error) {
+      console.error("Error fetching samples:", error);
+      res.status(500).json({ message: "Failed to fetch samples" });
+    }
+  });
+
+  app.post("/api/labs/load-sample", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { sampleId } = req.body;
+
+      const sampleLabs = await storage.getLabResults(sampleId);
+      if (sampleLabs.length === 0) {
+        return res.status(404).json({ message: "Sample not found" });
+      }
+
+      const sampleMarkers = sampleLabs[0].markers as LabMarkers;
+
+      const lab = await storage.createLabResult({
+        userId,
+        markers: sampleMarkers,
+      });
+
+      const profile = await storage.getProfile(userId);
+      if (profile) {
+        const recommendations = generateProgram(sampleMarkers, {
+          age: profile.age,
+          gender: profile.gender,
+          goals: profile.goals,
+          weight: profile.weight,
+          height: profile.height,
+        });
+        await storage.createProgram({
+          userId,
+          labResultId: lab.id,
+          recommendations,
+        });
+      }
+
+      res.json(lab);
+    } catch (error) {
+      console.error("Error loading sample:", error);
+      res.status(500).json({ message: "Failed to load sample data" });
+    }
+  });
+
+  app.post("/api/labs/parse-file", isAuthenticated, (req: any, res: any, next: any) => {
+    upload.single("labFile")(req, res, (err: any) => {
+      if (err) {
+        if (err.code === "LIMIT_FILE_SIZE") {
+          return res.status(413).json({ message: "File too large. Maximum size is 10MB." });
+        }
+        return res.status(400).json({ message: err.message || "Invalid file upload." });
+      }
+      next();
+    });
+  }, async (req: any, res: any) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const base64 = req.file.buffer.toString("base64");
+      const mimeType = req.file.mimetype;
+
+      const markers = await parseLabFile(base64, mimeType);
+      const count = Object.keys(markers).length;
+
+      if (count === 0) {
+        return res.status(422).json({
+          message: "Could not extract any biomarkers from this file. Please try a clearer image or enter values manually.",
+        });
+      }
+
+      res.json({ markers, extractedCount: count });
+    } catch (error: any) {
+      console.error("Error parsing lab file:", error);
+      res.status(500).json({
+        message: error.message || "Failed to parse lab file. Please try again or enter values manually.",
+      });
     }
   });
 

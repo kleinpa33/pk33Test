@@ -1,5 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +18,8 @@ import {
   ChevronRight,
   ClipboardList,
   AlertTriangle,
+  FlaskConical,
+  Loader2,
 } from "lucide-react";
 import type { LabResult, Profile, Program, MarkerStatus } from "@shared/schema";
 
@@ -87,6 +91,8 @@ function MarkerGauge({ marker }: { marker: MarkerStatus }) {
 export default function Dashboard() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: profile, isLoading: profileLoading } = useQuery<Profile | null>({
     queryKey: ["/api/profile"],
@@ -106,6 +112,34 @@ export default function Dashboard() {
   const { data: markerStatuses } = useQuery<MarkerStatus[]>({
     queryKey: ["/api/labs", "latest", "statuses"],
     enabled: isAuthenticated && !!labs && labs.length > 0,
+  });
+
+  const { data: samples } = useQuery<any[]>({
+    queryKey: ["/api/samples"],
+    enabled: isAuthenticated,
+  });
+
+  const loadSampleMutation = useMutation({
+    mutationFn: async (sampleId: string) => {
+      const res = await apiRequest("POST", "/api/labs/load-sample", { sampleId });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/labs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/programs"] });
+      toast({
+        title: "Sample loaded",
+        description: "Sample blood test loaded. Redirecting to your protocol...",
+      });
+      setLocation(`/program/${data.id}`);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to load sample data.",
+        variant: "destructive",
+      });
+    },
   });
 
   useEffect(() => {
@@ -209,6 +243,52 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {samples && samples.length > 0 && (
+          <Card data-testid="sample-data-card">
+            <CardHeader className="flex flex-row items-center justify-between gap-4">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <FlaskConical className="h-5 w-5 text-primary" />
+                Sample Blood Tests
+              </CardTitle>
+              <Badge variant="secondary" className="text-xs">Demo Data</Badge>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Try the platform with pre-loaded blood test profiles to see how recommendations are generated.
+              </p>
+              <div className="grid sm:grid-cols-3 gap-3">
+                {samples.map((s: any) => (
+                  <div
+                    key={s.id}
+                    className="rounded-md border p-3 space-y-2"
+                  >
+                    <p className="text-sm font-medium" data-testid={`text-sample-name-${s.id}`}>
+                      {s.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {Object.keys(s.markers).length} biomarkers
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full"
+                      disabled={loadSampleMutation.isPending}
+                      onClick={() => loadSampleMutation.mutate(s.id)}
+                      data-testid={`button-load-sample-${s.id}`}
+                    >
+                      {loadSampleMutation.isPending ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        "Load & Analyze"
+                      )}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {!hasLabs ? (
           <Card>
