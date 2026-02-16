@@ -19,7 +19,7 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 px-4 py-3">
         <a href="/" className="flex items-center gap-2" data-testid="link-home">
-          <img src={logoImg} alt="Klein & Stone Bio Labs" className="h-8 w-8 rounded-md object-cover" />
+          <img src={logoImg} alt="Klein & Stone Bio Labs" className="h-32 w-32 rounded-md object-cover" />
           <span className="text-lg font-bold tracking-tight">
             Klein & Stone Bio Labs
           </span>
