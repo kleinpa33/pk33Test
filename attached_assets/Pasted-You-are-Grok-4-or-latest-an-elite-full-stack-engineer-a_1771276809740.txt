@@ -1,0 +1,70 @@
+You are Grok 4 (or latest), an elite full-stack engineer at xAI specializing in HIPAA-adjacent health optimization apps. You excel at building production-grade MVPs fast: clean architecture, security-first, AI-hybrid logic, and deploy-ready code.
+Task: Build a complete, working MVP web app called BioSync Labs that:
+
+Allows authenticated users to upload blood test results (PDF/image/manual entry).
+Uses AI (vision model + rules + LLM) to parse key lab markers.
+Outputs a personalized 90-day optimization program: peptides, hormones, diet macros/meal ideas, exercise protocol—strictly based on parsed labs, user profile (age/gender/goals), and evidence-based functional medicine logic.
+Includes safety disclaimers everywhere ("Informational only—requires licensed MD; peptides often research-use").
+
+Strict Requirements & Constraints
+
+Frontend: Next.js 15+ (App Router), Tailwind + shadcn/ui, dark mode default, Framer Motion polish, mobile-responsive.
+Backend: Next.js API routes + Supabase (auth, Postgres DB, storage for uploads).
+AI Integration:
+Lab parsing: Use xAI/Grok vision API (or simulate with structured output) to extract 40+ markers into JSON. Fallback to manual form.
+Recommendation engine: Hybrid → first apply hardcoded rules (z-score severity), then refine with LLM call (your own reasoning or simulated Grok API prompt).
+
+Database Schema: Users, Profiles (age, gender, goals), UploadedLabs (raw file + parsed JSON), Programs (generated JSON + version history).
+Security: Row-level security in Supabase, encrypt sensitive lab data if possible, never store raw PDFs long-term (delete after parse).
+No external paid APIs beyond Supabase/xAI if needed—keep it self-contained for MVP.
+Output Format (MANDATORY—follow exactly):
+Project folder structure (tree view).
+Supabase schema SQL (tables + RLS policies).
+Key code files in full (use ```tsx
+app/layout.tsx
+app/page.tsx (upload + dashboard hero)
+components/LabUploader.tsx
+app/api/upload-lab/route.ts
+app/api/analyze/route.ts
+lib/recommender.ts (core rules + LLM refinement logic)
+Any other critical files (e.g. types, utils)
+
+Deployment instructions (Vercel + Supabase setup).
+Seed data: 3 example lab JSONs + expected program outputs.
+Extension points for future (e.g. add voice input, progress tracking).
+
+
+Core Features to Implement (Prioritize in order):
+
+Clerk or Supabase auth (email + Google).
+Upload flow: Drag-drop PDF/image → parse to structured JSON (focus on hormones: Total/Free T, IGF-1, hs-CRP, HbA1c, TSH/Free T3/T4, Cortisol, etc.).
+Dashboard: Gauges/charts showing deviations from optimal (age/gender-adjusted ranges), color-coded (green/yellow/red).
+Generate Program button → outputs structured JSON with:
+Peptides: 1-3 max (e.g. low IGF-1 → CJC-1295/Ipamorelin; high CRP → BPC-157/TB-500; poor glucose → Semaglutide/Tirzepatide).
+Hormones: e.g. low T → Enclomiphene/Gonadorelin suggestion.
+Diet: Macros + sample 7-day meals.
+Exercise: Weekly split + cardio recs.
+Explanations + risks/synergies.
+
+Safety layer: Red banner disclaimer on every screen + in outputs.
+
+Lab-to-Rec Rules (Hardcode these as starting point in recommender.ts):
+Use table logic:
+
+IGF-1 < age-adjusted low → CJC-1295 + Ipamorelin 100-200mcg nightly
+Total T <350 ng/dL (men) → Kisspeptin/Gonadorelin or Enclomiphene
+hs-CRP >2 mg/L → BPC-157 250-500mcg + TB-500
+HbA1c >5.7 → GLP-1 (Semaglutide/Tirzepatide)
+High cortisol → DSIP/Ipamorelin supportive
+Cap at 3 peptides total. Calculate z-scores. Always add "Cycle 8-12 weeks, off 4 weeks, retest."
+
+Agentic Thinking Step-by-Step (Do this internally first):
+
+Plan architecture (auth → upload → parse → rules → LLM refine → display).
+Define types/interfaces (LabMarkers, ProgramRec).
+Build recommender logic.
+Implement API routes.
+Wire frontend components.
+Add polish & disclaimers.
+
+Begin generation now. Output in the exact structured format above. Be exhaustive but concise—no chit-chat. If code is long, prioritize working core (upload + analyze + basic rec display) and note extensions.
