@@ -20,9 +20,6 @@ export function Header() {
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 px-4 py-3">
         <a href="/" className="flex items-center gap-2" data-testid="link-home">
           <img src={logoImg} alt="Klein & Stone Bio Labs" className="h-32 w-32 rounded-md object-cover" />
-          <span className="text-lg font-bold tracking-tight">
-            Klein & Stone Bio Labs
-          </span>
         </a>
 
         <div className="flex items-center gap-2">
