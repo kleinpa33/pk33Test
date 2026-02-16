@@ -68,7 +68,25 @@ IMPORTANT RULES:
 4. Do not guess or fabricate values. Only include what's explicitly shown
 5. If you cannot find any biomarkers, return an empty object {}`;
 
-export async function parseLabFile(base64Image: string, mimeType: string): Promise<Partial<LabMarkers>> {
+async function convertPdfToImages(pdfBuffer: Buffer): Promise<{ base64: string; mimeType: string }[]> {
+  const { pdf } = await import("pdf-to-img");
+  const images: { base64: string; mimeType: string }[] = [];
+
+  const doc = await pdf(pdfBuffer, { scale: 2 });
+  let pageCount = 0;
+  const maxPages = 3;
+
+  for await (const image of doc) {
+    if (pageCount >= maxPages) break;
+    const base64 = Buffer.from(image).toString("base64");
+    images.push({ base64, mimeType: "image/png" });
+    pageCount++;
+  }
+
+  return images;
+}
+
+async function extractMarkersFromImage(base64: string, mimeType: string): Promise<Partial<LabMarkers>> {
   const response = await openai.chat.completions.create({
     model: "gpt-5.2",
     messages: [
@@ -79,7 +97,7 @@ export async function parseLabFile(base64Image: string, mimeType: string): Promi
           {
             type: "image_url",
             image_url: {
-              url: `data:${mimeType};base64,${base64Image}`,
+              url: `data:${mimeType};base64,${base64}`,
             },
           },
           {
@@ -95,7 +113,7 @@ export async function parseLabFile(base64Image: string, mimeType: string): Promi
 
   const content = response.choices[0]?.message?.content;
   if (!content) {
-    throw new Error("No response from AI model");
+    return {};
   }
 
   let parsed: any;
@@ -123,4 +141,29 @@ export async function parseLabFile(base64Image: string, mimeType: string): Promi
   }
 
   return result;
+}
+
+export async function parseLabFile(base64Data: string, mimeType: string): Promise<Partial<LabMarkers>> {
+  if (mimeType === "application/pdf") {
+    const pdfBuffer = Buffer.from(base64Data, "base64");
+    const images = await convertPdfToImages(pdfBuffer);
+
+    if (images.length === 0) {
+      throw new Error("Could not extract any pages from the PDF");
+    }
+
+    const allMarkers: Partial<LabMarkers> = {};
+    for (const img of images) {
+      const pageMarkers = await extractMarkersFromImage(img.base64, img.mimeType);
+      for (const [key, value] of Object.entries(pageMarkers)) {
+        if (!(key in allMarkers)) {
+          (allMarkers as any)[key] = value;
+        }
+      }
+    }
+
+    return allMarkers;
+  }
+
+  return extractMarkersFromImage(base64Data, mimeType);
 }
