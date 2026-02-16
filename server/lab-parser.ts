@@ -108,7 +108,7 @@ async function extractMarkersFromImage(base64: string, mimeType: string): Promis
       },
     ],
     response_format: { type: "json_object" },
-    max_tokens: 2000,
+    max_completion_tokens: 2000,
   });
 
   const content = response.choices[0]?.message?.content;
