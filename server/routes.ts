@@ -133,6 +133,21 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/labs/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const deleted = await storage.deleteLabResult(id, userId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Lab result not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting lab result:", error);
+      res.status(500).json({ message: "Failed to delete lab result" });
+    }
+  });
+
   app.get("/api/programs", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;

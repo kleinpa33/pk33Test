@@ -18,6 +18,7 @@ export interface IStorage {
   getLabResults(userId: string): Promise<LabResult[]>;
   getLabResult(id: string, userId: string): Promise<LabResult | undefined>;
   createLabResult(data: InsertLabResult): Promise<LabResult>;
+  deleteLabResult(id: string, userId: string): Promise<boolean>;
   getPrograms(userId: string): Promise<Program[]>;
   getProgramByLabId(labResultId: string, userId: string): Promise<Program | undefined>;
   createProgram(data: InsertProgram): Promise<Program>;
@@ -69,6 +70,14 @@ class DatabaseStorage implements IStorage {
   async createLabResult(data: InsertLabResult): Promise<LabResult> {
     const [result] = await db.insert(labResults).values(data).returning();
     return result;
+  }
+
+  async deleteLabResult(id: string, userId: string): Promise<boolean> {
+    const lab = await this.getLabResult(id, userId);
+    if (!lab) return false;
+    await db.delete(programs).where(eq(programs.labResultId, id));
+    await db.delete(labResults).where(eq(labResults.id, id));
+    return true;
   }
 
   async getPrograms(userId: string): Promise<Program[]> {

@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   FlaskConical,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import type { LabResult, Profile, Program, MarkerStatus } from "@shared/schema";
 
@@ -137,6 +138,27 @@ export default function Dashboard() {
       toast({
         title: "Error",
         description: "Failed to load sample data.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteLabMutation = useMutation({
+    mutationFn: async (labId: string) => {
+      await apiRequest("DELETE", `/api/labs/${labId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/labs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/programs"] });
+      toast({
+        title: "Deleted",
+        description: "Lab result has been removed.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete lab result.",
         variant: "destructive",
       });
     },
@@ -349,10 +371,12 @@ export default function Dashboard() {
                         <div
                           key={lab.id}
                           className="flex items-center justify-between gap-3 rounded-md border p-3 hover-elevate cursor-pointer"
-                          onClick={() => setLocation(`/program/${lab.id}`)}
                           data-testid={`lab-entry-${lab.id}`}
                         >
-                          <div className="flex items-center gap-3 min-w-0">
+                          <div
+                            className="flex items-center gap-3 min-w-0 flex-1"
+                            onClick={() => setLocation(`/program/${lab.id}`)}
+                          >
                             <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
                             <div className="min-w-0">
                               <p className="text-sm font-medium truncate">
@@ -370,7 +394,22 @@ export default function Dashboard() {
                               </p>
                             </div>
                           </div>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              data-testid={`button-delete-lab-${lab.id}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm("Delete this lab result? This cannot be undone.")) {
+                                  deleteLabMutation.mutate(lab.id);
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          </div>
                         </div>
                       );
                     })}
