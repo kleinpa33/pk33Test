@@ -30,8 +30,8 @@ export default function Landing() {
               </div>
 
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-tight">
-                Your Blood Work,{" "}
-                <span className="text-primary">Decoded</span>
+                Harrison is{" "}
+                <span className="text-primary">Stud!</span>
               </h1>
 
               <p className="text-lg text-muted-foreground max-w-lg leading-relaxed">
